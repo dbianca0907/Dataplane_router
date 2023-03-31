@@ -5,8 +5,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-void send_echo_reply(struct ether_header *old_eth, struct iphdr *old_ip,
-					struct icmphdr *old_icmp, int interface, char *buf, size_t len ,int type) {
+void send_echo_reply(int interface, char *buf, size_t len) {
+	struct ether_header *old_eth = (struct ether_header *) buf;
+	struct iphdr *old_ip = (struct iphdr *) (buf + sizeof(struct ether_header));
+	struct icmphdr *old_icmp = (struct icmphdr *) (buf + sizeof(struct ether_header) + sizeof(struct iphdr));
+
 
 	uint8_t *mac = old_eth->ether_dhost;
 	memcpy(old_eth->ether_dhost, old_eth->ether_shost, 6);
@@ -26,41 +29,51 @@ void send_echo_reply(struct ether_header *old_eth, struct iphdr *old_ip,
 	send_to_link(interface, buf, len);
 }
 
-void send_icmp_message(struct ether_header *old_eth, struct iphdr *old_ip, int interface, char *buf, size_t len ,int type) {
+void send_icmp_message(struct ether_header *old_eth, struct iphdr *old_ip, int interface, char *buf, int type) {
 
 	struct ether_header *new_eth = (struct ether_header *) malloc(sizeof(struct ether_header));
 	struct iphdr *new_ip = (struct iphdr *) malloc(sizeof(struct iphdr));
 	struct icmphdr *new_icmp = (struct icmphdr *) malloc(sizeof(struct icmphdr));
-
-	uint8_t *mac = old_eth->ether_dhost;
-	memcpy(old_eth->ether_dhost, old_eth->ether_shost, 6);
-	memcpy(old_eth->ether_shost, mac, 6);
+	char packet[MAX_PACKET_LEN];
+	
+	memcpy(new_eth->ether_dhost, old_eth->ether_shost, 6);
+	memcpy(new_eth->ether_shost, old_eth->ether_dhost, 6);
 	new_eth->ether_type = old_eth->ether_type;
+	memcpy(packet, new_eth, sizeof(struct ether_header));
 
 	memcpy(new_ip, old_ip, sizeof(struct iphdr));
+	struct in_addr *ip = (struct in_addr *) malloc(sizeof(struct in_addr));
+	inet_aton(get_interface_ip(interface), ip);
+	new_ip->saddr = ip->s_addr;
 	new_ip->daddr = old_ip->saddr;
-	new_ip->saddr = old_ip->daddr;
 	new_ip->ttl = 64;
+	new_ip->tot_len = sizeof(struct iphdr) + sizeof(struct icmphdr) + 64;
 	new_ip->check = 0;
 	new_ip->check = htons(checksum((uint16_t*)old_ip, sizeof(struct iphdr)));
+	memcpy(packet + sizeof(struct ether_header), new_ip, sizeof(struct iphdr));
 
 	new_icmp->code = 0;
 	new_icmp->type = type;
 	new_icmp->checksum = 0;
 	new_icmp->checksum = htons(checksum((uint16_t*)new_icmp, sizeof(struct icmphdr)));
+	
+	int offset = sizeof(struct ether_header) + sizeof(struct iphdr);
+	memcpy(packet + offset, new_icmp, sizeof(struct icmphdr));
+	memcpy(packet + offset + sizeof(struct icmphdr), buf + offset, 64);
+	
+	/*struct icmphdr *new_icmp2 = (struct icmphdr *) (packet + offset);
 
-	char packet[MAX_PACKET_LEN];
-	memcpy(packet, new_eth, sizeof(struct ether_header));
-	memcpy(packet + sizeof(struct ether_header), new_ip, sizeof(struct iphdr));
-	memcpy(packet + sizeof(struct ether_header) + sizeof(struct iphdr), new_icmp, sizeof(struct icmphdr));
-	//memcpy(packet + sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct icmphdr), 
-			//buf + sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct icmphdr), 64);
-	send_to_link(interface, packet, 64);
+	new_icmp2->checksum = htons(checksum((uint16_t*)new_icmp2, sizeof(struct icmphdr) + 64));*/
+	
+	size_t len = sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct icmphdr);
+
+	send_to_link(interface, packet, len);
 }
 
 struct route_table_entry* get_next_hop(uint32_t dest_ip, struct route_table_entry *rtable, int rt_size) {
-	int i;
-	for (i = 0; i < rt_size; i++) {
+	//need to sort the table first
+	int best_indx = -1;
+	for (int i = 0; i < rt_size; i++) {
 		if ((dest_ip & rtable[i].mask) == rtable[i].prefix) {
 			return &rtable[i];
 		}
@@ -145,8 +158,6 @@ int main(int argc, char *argv[]) {
 
 		struct ether_header *eth_hdr = (struct ether_header *) buf;
 
-
-
 		/* Note that packets received are in network order,
 		any header field which has more than 1 byte will need to be conerted to
 		host order. For example, ntohs(eth_hdr->ether_type). The oposite is needed when
@@ -162,57 +173,51 @@ int main(int argc, char *argv[]) {
 			printf("source of packet %s\n", inet_ntoa(*(struct in_addr *)&ip_header->saddr));
 			printf("destination of packet %s\n", inet_ntoa(*(struct in_addr *)&ip_header->daddr)); 
 			
-			if (ip_header->daddr == inet_addr(get_interface_ip(interface))) {
-				printf("The packet is for me\n");
+			if ((ip_header->protocol == IPPROTO_ICMP)) {
+				struct icmphdr *icmp_header = (struct icmphdr *) (buf + sizeof(struct ether_header) + sizeof(struct iphdr));
 				
-				if (ip_header->protocol == IPPROTO_ICMP) {
-					printf("I found an ICMP packet\n");
-					struct icmphdr *icmp_header = (struct icmphdr *) (buf + sizeof(struct ether_header) + sizeof(struct iphdr));
-				
-					if (icmp_header->type == 8) {
-						printf("I found an ICMP echo request\n");
-						send_echo_reply(eth_hdr, ip_header, icmp_header, interface, buf, len, 0);
-						//send_echo_reply(eth_hdr, ip_header, icmp_header, interface, buf, len, 0);
-					}
-				}
-			} else {
-				printf("Forwarding the packet\n");
-
-				//verify if the packet is valid
-				uint16_t checksum_packet = ip_header->check;
-				ip_header->check = 0;
-				uint16_t checksum_correct = htons(checksum((uint16_t*)ip_header, sizeof(struct iphdr)));
-				if (checksum_correct != checksum_packet) {
-					printf("Checksum: %d\n", checksum_packet);
-					printf("Checksum correct: %d\n", checksum_correct);
-					printf("The packet is invalid\n");
+				if ((ip_header->daddr == inet_addr(get_interface_ip(interface)))
+					&& icmp_header->type == 8) {
+					printf("I found an ICMP echo request\n");
+					send_echo_reply(interface, buf, len);
 					break;
 				}
-					
-					//check if the TTL is valid
-				if (ip_header->ttl <= 1) {
-					printf("TTL expired\n");
-					send_icmp_message(eth_hdr, ip_header, interface, buf, len, 11);
-					break;
-				} 
-				printf("checksum correct\n");
-				//search for the next hop in the routing table
-				struct route_table_entry *next_hop = get_next_hop(ip_header->daddr, rtable, rt_size);
-				if (next_hop == NULL) {
-					printf("Host unreachable\n");
-					send_icmp_message(eth_hdr, ip_header, interface, buf, len, 3);
-					break;
-				}
-				//search for the interface to send the packet
-				uint8_t mac_daddr;
-				get_mac_static(next_hop->next_hop, arp_table, arp_size, &mac_daddr);
-				//make ipv4 packet
-				forward_ip_packet(eth_hdr, ip_header, buf, next_hop, &mac_daddr, len);
 			}
+			printf("Forwarding the packet\n");
+
+			//verify if the packet is valid
+			uint16_t checksum_packet = ip_header->check;
+			ip_header->check = 0;
+			uint16_t checksum_correct = htons(checksum((uint16_t*)ip_header, sizeof(struct iphdr)));
+			if (checksum_correct != checksum_packet) {
+				printf("Checksum: %d\n", checksum_packet);
+				printf("Checksum correct: %d\n", checksum_correct);
+				printf("The packet is invalid\n");
+				break;
+			}
+					
+			//check if the TTL is valid
+			if (ip_header->ttl <= 1) {
+				printf("TTL expired\n");
+				//send_icmp_message(eth_hdr, ip_header, interface, buf, 11);
+				break;
+			} 
+			printf("checksum correct\n");
+			//search for the next hop in the routing table
+			struct route_table_entry *next_hop = get_next_hop(ip_header->daddr, rtable, rt_size);
+			if (next_hop == NULL) {
+				printf("Host unreachable\n");
+				//send_icmp_message(eth_hdr, ip_header, interface, buf, 3);
+				break;
+			}
+			//search for the interface to send the packet
+			uint8_t mac_daddr;
+			get_mac_static(next_hop->next_hop, arp_table, arp_size, &mac_daddr);
+			//make ipv4 packet
+			forward_ip_packet(eth_hdr, ip_header, buf, next_hop, &mac_daddr, len);
 		} else {
 			printf("I found a non-IPv4 packet\n");
 		}
-
 	}
 	return 0;
 }
