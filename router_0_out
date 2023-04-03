@@ -1,51 +1,73 @@
 Setting up interface: rr-0-1
 Setting up interface: r-0
 Setting up interface: r-1
-start of packet
-I found an IPv4 packet
-source of packet 192.168.0.2
-destination of packet 192.168.1.2
-Forwarding the packet
-checksum correct
-MAC address:
-de:ad:be:ef:00:00
-start of packet
-I found an IPv4 packet
-source of packet 192.168.0.2
-destination of packet 192.168.1.2
-Forwarding the packet
-checksum correct
-MAC address:
-de:ad:be:ef:00:00
-start of packet
-I found an IPv4 packet
-source of packet 192.168.0.2
-destination of packet 192.168.1.2
-Forwarding the packet
-checksum correct
-MAC address:
-de:ad:be:ef:00:00
-start of packet
-I found an IPv4 packet
-source of packet 192.168.0.2
-destination of packet 192.168.1.2
-Forwarding the packet
-checksum correct
-MAC address:
-de:ad:be:ef:00:00
-start of packet
-I found an IPv4 packet
-source of packet 192.168.0.2
-destination of packet 192.168.1.2
-Forwarding the packet
-checksum correct
-MAC address:
-de:ad:be:ef:00:00
-start of packet
-I found an IPv4 packet
-source of packet 192.168.0.2
-destination of packet 192.168.1.2
-Forwarding the packet
-Checksum: 256
-Checksum correct: 38136
-The packet is invalid
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+Checksum is not correct!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an ICMP echo request
+I found an IPv4 packet!
+TTL is not correct!
+I found an IPv4 packet!
+Host unreachable!
+I found an IPv4 packet!
+Host unreachable!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!
+I found an IPv4 packet!

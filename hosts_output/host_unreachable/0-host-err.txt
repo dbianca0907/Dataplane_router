@@ -1,10 +1,111 @@
-Traceback (most recent call last):
-  File "/home/dbianca0907/Desktop/PCOM_tema1/./checker/checker.py", line 77, in <module>
-    main()
-  File "/home/dbianca0907/Desktop/PCOM_tema1/./checker/checker.py", line 71, in main
-    passive(args.host, args.testname)
-  File "/home/dbianca0907/Desktop/PCOM_tema1/./checker/checker.py", line 38, in passive
-    status = fn(testname, packets)
-  File "/home/dbianca0907/Desktop/PCOM_tema1/checker/tests.py", line 459, in host_unreachable_p
-    if ICMP not in packets[1]:
-IndexError: list index out of range
+-- Excess packets:
+-- Packet
+###[ Ethernet ]### 
+  dst       = de:fe:c8:ed:00:00
+  src       = de:ad:be:ef:00:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 20
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = hopopt
+     chksum    = 0xb03e
+     src       = 192.168.0.2
+     dst       = 10.0.0.1
+     \options   \
+
+-- Packet
+###[ Ethernet ]### 
+  dst       = de:ad:be:ef:00:00
+  src       = de:fe:c8:ed:00:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 20
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = hopopt
+     chksum    = 0xb03e
+     src       = 10.0.0.1
+     dst       = 192.168.0.2
+     \options   \
+###[ Padding ]### 
+        load      = '\x03\x00\xfc\xff\x00\x00\x00\x00'
+
+-- Packet
+###[ Ethernet ]### 
+  dst       = de:fe:c8:ed:00:00
+  src       = de:ad:be:ef:00:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xc0
+     len       = 48
+     id        = 2917
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = 0xa3fd
+     src       = 192.168.0.2
+     dst       = 10.0.0.1
+     \options   \
+###[ ICMP ]### 
+        type      = dest-unreach
+        code      = protocol-unreachable
+        chksum    = 0xfcfd
+        reserved  = 0
+        length    = 0
+        nexthopmtu= 0
+###[ IP in ICMP ]### 
+           version   = 4
+           ihl       = 5
+           tos       = 0x0
+           len       = 20
+           id        = 1
+           flags     = 
+           frag      = 0
+           ttl       = 64
+           proto     = hopopt
+           chksum    = 0xb03e
+           src       = 10.0.0.1
+           dst       = 192.168.0.2
+           \options   \
+
+-- Packet
+###[ Ethernet ]### 
+  dst       = de:ad:be:ef:00:00
+  src       = de:fe:c8:ed:00:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xc0
+     len       = 48
+     id        = 2917
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = 0xa3fd
+     src       = 10.0.0.1
+     dst       = 192.168.0.2
+     \options   \
+###[ ICMP ]### 
+        type      = dest-unreach
+        code      = network-unreachable
+        chksum    = 0xfcff
+        reserved  = 0
+        length    = 0
+        nexthopmtu= 0
+
