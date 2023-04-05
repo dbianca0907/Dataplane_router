@@ -6,9 +6,11 @@
 #include <arpa/inet.h>
 
 struct route_table_entry *rtable;
-struct arp_entry *arp_table;
 int rt_size;
+
+struct arp_entry *arp_table;
 int arp_size;
+
 queue Queue_arp;
 
 struct packet_queue {
@@ -16,6 +18,50 @@ struct packet_queue {
 	char packet[MAX_PACKET_LEN];
 	size_t len;
 };
+
+int compare (const void *rt1, const void *rt2) {
+	struct route_table_entry *rt1_entry = (struct route_table_entry *)rt1;
+	struct route_table_entry *rt2_entry = (struct route_table_entry *)rt2;
+	
+	uint32_t rt1_ip = ntohl(rt1_entry->prefix & rt2_entry->mask);
+	uint32_t rt2_ip = ntohl(rt2_entry->prefix & rt2_entry->mask);
+
+	if (rt1_ip == rt2_ip) {
+		return (ntohl(rt2_entry->mask) - ntohl(rt1_entry->mask));
+	} else {
+		return rt2_ip - rt1_ip;
+	}
+
+	return 0;
+}
+
+struct route_table_entry* get_best_route_binary_search(uint32_t dest_ip) {
+	
+	int left = 0;
+	int right = rt_size - 1;
+	int middle;
+	int indx = -1;
+
+	while (left <= right) {
+		middle = (left + right) / 2;
+
+		if ((dest_ip & rtable[middle].mask) == (rtable[middle].prefix & rtable[middle].mask)) {
+			if (indx == -1 || ntohl(rtable[middle].mask) > ntohl(rtable[indx].mask)) {
+				indx = middle;
+			}
+			right = middle - 1;
+		} else if (ntohl((dest_ip & rtable[middle].mask)) > ntohl(rtable[middle].prefix & rtable[middle].mask)) {
+			right = middle - 1; // cauta in  stanga
+		} else if (ntohl((dest_ip & rtable[middle].mask)) < ntohl(rtable[middle].prefix & rtable[middle].mask)) {
+			left = middle + 1; // cauta in dreapta
+		}
+
+	}
+	if (indx == -1) {
+		return NULL;
+	}
+	return &rtable[indx];
+}
 
 void send_echo_message(int interface, char *buf, size_t len, int type) {
 	struct ether_header *old_eth = (struct ether_header *) buf;
@@ -70,7 +116,7 @@ void send_echo_message(int interface, char *buf, size_t len, int type) {
 
 }
 
-struct route_table_entry* get_best_route(uint32_t dest_ip, struct route_table_entry *rtable, int rt_size) {
+struct route_table_entry* get_best_route_linear(uint32_t dest_ip) {
 
 	int indx = -1;
 	for (int i = 0; i < rt_size; i++) {
@@ -154,7 +200,6 @@ void ip_forward(char *packet, size_t len, int interface) {
 		if ((ip_hdr->daddr == inet_addr(get_interface_ip(interface)))
 			&& icmp_header->type == 8) {
 			printf("I found an ICMP echo request\n");
-			//send_echo_reply(interface, packet, len);
 			send_echo_message(interface, packet, len, 0);
 			return;
 		}
@@ -166,7 +211,7 @@ void ip_forward(char *packet, size_t len, int interface) {
 	ip_hdr->check = htons(checksum((uint16_t*)ip_hdr, sizeof(struct iphdr)));
 
 	//find the best route
-	struct route_table_entry *best_route = get_best_route(ip_hdr->daddr, rtable, rt_size);
+	struct route_table_entry *best_route = get_best_route_binary_search(ip_hdr->daddr);
 
 	//Host unreachable
 	if (best_route == NULL) {
@@ -275,8 +320,7 @@ int main(int argc, char *argv[]) {
 	rt_size = read_rtable(argv[1], rtable);
 	Queue_arp = queue_create();
 	arp_size = 0;
-	//arp_size = parse_arp_table("arp_table.txt", arp_table);
-	//qsort(rtable, rt_size, sizeof(struct route_table_entry), compare);
+	qsort(rtable, rt_size, sizeof(struct route_table_entry), compare);
 
 	while (1) {
 
@@ -293,17 +337,15 @@ int main(int argc, char *argv[]) {
 		host order. For example, ntohs(eth_hdr->ether_type). The oposite is needed when
 		sending a packet on the link, */
 
-		//check if the packet is an IPv4 packet
 		if (ntohs(eth_hdr->ether_type) == 0x0800) {
 			printf("I found an IPv4 packet!\n");
 			ip_forward(buf, len, interface);
 		} else if (ntohs(eth_hdr->ether_type) == 0x0806) {
 			struct arp_header *arp_header = (struct arp_header *) (buf + sizeof(struct ether_header));
 			if (arp_header->op == htons(1)) {
-				//am primit un arp request
 				printf("I found an ARP request\n");
 				receive_arp_request(interface, buf, len);
-			} else { // am primit un arp reply
+			} else { 
 				receive_arp_reply(buf);
 			}
 		}
