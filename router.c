@@ -13,11 +13,16 @@ int arp_size;
 
 queue Queue_arp;
 
+//struct for arp queue
 struct packet_queue {
 	struct route_table_entry *best_route;
 	char packet[MAX_PACKET_LEN];
 	size_t len;
 };
+
+/*
+	Function for the quick sort algorithm.
+*/
 
 int compare (const void *rt1, const void *rt2) {
 	struct route_table_entry *rt1_entry = (struct route_table_entry *)rt1;
@@ -26,7 +31,9 @@ int compare (const void *rt1, const void *rt2) {
 	uint32_t rt1_ip = ntohl(rt1_entry->prefix & rt2_entry->mask);
 	uint32_t rt2_ip = ntohl(rt2_entry->prefix & rt2_entry->mask);
 
+	//sorting by prefix in a descending order
 	if (rt1_ip == rt2_ip) {
+		//sorting by mask in a descending order
 		return (ntohl(rt2_entry->mask) - ntohl(rt1_entry->mask));
 	} else {
 		return rt2_ip - rt1_ip;
@@ -35,6 +42,10 @@ int compare (const void *rt1, const void *rt2) {
 	return 0;
 }
 
+/*
+	Searching for the best route in the routing table, using
+	the binary search algorithm.
+*/
 struct route_table_entry* get_best_route_binary_search(uint32_t dest_ip) {
 	
 	int left = 0;
@@ -45,15 +56,18 @@ struct route_table_entry* get_best_route_binary_search(uint32_t dest_ip) {
 	while (left <= right) {
 		middle = (left + right) / 2;
 
-		if ((dest_ip & rtable[middle].mask) == (rtable[middle].prefix & rtable[middle].mask)) {
+		uint32_t ip = ntohl((dest_ip & rtable[middle].mask));
+		uint32_t rt_ip = ntohl(rtable[middle].prefix & rtable[middle].mask);
+
+		if (ip == rt_ip) {
 			if (indx == -1 || ntohl(rtable[middle].mask) > ntohl(rtable[indx].mask)) {
 				indx = middle;
 			}
 			right = middle - 1;
-		} else if (ntohl((dest_ip & rtable[middle].mask)) > ntohl(rtable[middle].prefix & rtable[middle].mask)) {
-			right = middle - 1; // cauta in  stanga
-		} else if (ntohl((dest_ip & rtable[middle].mask)) < ntohl(rtable[middle].prefix & rtable[middle].mask)) {
-			left = middle + 1; // cauta in dreapta
+		} else if (ip > rt_ip) {
+			right = middle - 1;
+		} else if (ip < rt_ip) {
+			left = middle + 1;
 		}
 
 	}
@@ -63,6 +77,9 @@ struct route_table_entry* get_best_route_binary_search(uint32_t dest_ip) {
 	return &rtable[indx];
 }
 
+/*
+	Modifying the packet and sending en echo message. 
+*/
 void send_echo_message(int interface, char *buf, size_t len, int type) {
 	struct ether_header *old_eth = (struct ether_header *) buf;
 	struct iphdr *old_ip = (struct iphdr *) (buf + sizeof(struct ether_header));
@@ -133,6 +150,10 @@ struct route_table_entry* get_best_route_linear(uint32_t dest_ip) {
 	return &rtable[indx];
 }
 
+/*
+	Creating and sending an arp request packet. Adding the received packet
+	in the queue.
+*/
 void send_arp_request (struct route_table_entry *best_route, char *packet, size_t len) {
 	//create new packet
 	char new_packet[MAX_PACKET_LEN];
@@ -172,6 +193,9 @@ void send_arp_request (struct route_table_entry *best_route, char *packet, size_
 	send_to_link(best_route->interface, new_packet, new_packet_len);
 }
 
+/*
+	Function that handles a received IPv4 packet
+*/
 void ip_forward(char *packet, size_t len, int interface) {	
 	struct ether_header *eth_hdr = (struct ether_header *) packet;
 	struct iphdr *ip_hdr = (struct iphdr *) (packet + sizeof(struct ether_header));
@@ -235,13 +259,17 @@ void ip_forward(char *packet, size_t len, int interface) {
 	}
 
 	if (found == 0) {
-		printf("I don't know the mac address of the next hop!\n");
+		printf("Next hop unknown\n");
 		send_arp_request(best_route, packet, len);
 		return;
 	}
 	send_to_link(best_route->interface, packet, len);
 }
 
+/*
+	Function that modifies the received arp request packet into an arp
+	reply packet.
+*/
 void receive_arp_request(int interface, char *packet, size_t len) {
 	uint8_t mac_src[6];
 	get_interface_mac(interface, mac_src);
@@ -268,6 +296,10 @@ void receive_arp_request(int interface, char *packet, size_t len) {
 	send_to_link(interface, packet, len);
 }
 
+/*
+	Function that handles an arp reply packet: updates the arp table,
+	sends packages from the queue.
+*/
 void receive_arp_reply(char *packet) {
 	struct arp_header *arp_hdr = (struct arp_header *) (packet + sizeof(struct ether_header));
 
