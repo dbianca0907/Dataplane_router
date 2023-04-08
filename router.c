@@ -15,15 +15,14 @@ queue Queue_arp;
 
 //struct for arp queue
 struct packet_queue {
-	struct route_table_entry *best_route;
-	char packet[MAX_PACKET_LEN];
-	size_t len;
+	struct route_table_entry *best_route; // the entry from the routing table for the nest hop
+	char packet[MAX_PACKET_LEN]; // the packet to be sent
+	size_t len; // the length of the packet
 };
 
 /*
 	Function for the quick sort algorithm.
 */
-
 int compare (const void *rt1, const void *rt2) {
 	struct route_table_entry *rt1_entry = (struct route_table_entry *)rt1;
 	struct route_table_entry *rt2_entry = (struct route_table_entry *)rt2;
@@ -80,9 +79,9 @@ struct route_table_entry* get_best_route_binary_search(uint32_t dest_ip) {
 /*
 	Modifying the packet and sending en echo message. 
 */
-void send_echo_message(int interface, char *buf, size_t len, int type) {
-	struct ether_header *old_eth = (struct ether_header *) buf;
-	struct iphdr *old_ip = (struct iphdr *) (buf + sizeof(struct ether_header));
+void send_icmp_message(int interface, char *buf, size_t len, int type) {
+	struct ether_header *eth = (struct ether_header *) buf;
+	struct iphdr *iph = (struct iphdr *) (buf + sizeof(struct ether_header));
 
 	//for TTL and Host Unreachable
 	char initial_ip_header[MAX_PACKET_LEN];
@@ -90,17 +89,17 @@ void send_echo_message(int interface, char *buf, size_t len, int type) {
 
 	//swap mac addresses
 	uint8_t *mac = (uint8_t *) malloc(6);
-	memcpy(mac, old_eth->ether_dhost, 6);
-	memcpy(old_eth->ether_dhost, old_eth->ether_shost, 6);
-	memcpy(old_eth->ether_shost, mac, 6);
+	memcpy(mac, eth->ether_dhost, 6);
+	memcpy(eth->ether_dhost, eth->ether_shost, 6);
+	memcpy(eth->ether_shost, mac, 6);
 
 	//modify ip header
-	uint32_t ip = old_ip->saddr;
-	old_ip->saddr = old_ip->daddr;
-	old_ip->daddr = ip;
-	old_ip->ttl = 64;
-	old_ip->check = 0;
-	old_ip->check = htons(checksum((uint16_t*)old_ip, sizeof(struct iphdr)));
+	uint32_t ip = iph->saddr;
+	iph->saddr = iph->daddr;
+	iph->daddr = ip;
+	iph->ttl = 64;
+	iph->check = 0;
+	iph->check = htons(checksum((uint16_t*)iph, sizeof(struct iphdr)));
 
 	if (type == 0) {
 		//for icmp echo reply
@@ -113,10 +112,10 @@ void send_echo_message(int interface, char *buf, size_t len, int type) {
 		//for TTL and Host Unreachable
 		struct icmphdr *new_icmp = (struct icmphdr *) malloc(sizeof(struct icmphdr));
 		char new_packet[MAX_PACKET_LEN];
-		old_ip->protocol = IPPROTO_ICMP;
-		old_ip->tot_len = htons(sizeof(struct iphdr) + sizeof(struct icmphdr));
-		old_ip->check = 0;
-		old_ip->check = htons(checksum((uint16_t*)old_ip, sizeof(struct iphdr)));
+		iph->protocol = IPPROTO_ICMP;
+		iph->tot_len = htons(sizeof(struct iphdr) + sizeof(struct icmphdr));
+		iph->check = 0;
+		iph->check = htons(checksum((uint16_t*)iph, sizeof(struct iphdr)));
 
 		new_icmp->type = type;
 		new_icmp->code = 0;
@@ -213,7 +212,7 @@ void ip_forward(char *packet, size_t len, int interface) {
 	//verify TTl
 	if (ip_hdr->ttl <= 1) {
 		printf("TTL is not correct!\n");
-		send_echo_message(interface, packet, len, 11);
+		send_icmp_message(interface, packet, len, 11);
 		return;
 	}
 
@@ -224,7 +223,7 @@ void ip_forward(char *packet, size_t len, int interface) {
 		if ((ip_hdr->daddr == inet_addr(get_interface_ip(interface)))
 			&& icmp_header->type == 8) {
 			printf("I found an ICMP echo request\n");
-			send_echo_message(interface, packet, len, 0);
+			send_icmp_message(interface, packet, len, 0);
 			return;
 		}
 	}
@@ -240,7 +239,7 @@ void ip_forward(char *packet, size_t len, int interface) {
 	//Host unreachable
 	if (best_route == NULL) {
 		printf("Host unreachable!\n");
-		send_echo_message(interface, packet, len, 3);
+		send_icmp_message(interface, packet, len, 3);
 		return;
 	}
 
@@ -348,6 +347,7 @@ int main(int argc, char *argv[]) {
 	DIE(rtable == NULL, "Failed to allocate memory for rtable");
 
 	arp_table = (struct arp_entry *)malloc(sizeof(struct arp_entry) * 100000);
+	DIE(arp_table == NULL, "Failed to allocate memory for arp_table");
 	
 	rt_size = read_rtable(argv[1], rtable);
 	Queue_arp = queue_create();

@@ -1,0 +1,38 @@
+Dumitru Bianca-Andreea, 322CA
+
+# PCOM - DataPlane Router
+
+## Implemented tasks:
+
+### 1. LPM efficient
+
+ For finding the longest prefix match, I used **binary search**. Before applying the algorithm, I used **quicksort** to efficiently sort the routing table in a descending order based on prefix and mask. I implemented the function "compare" that establishes the order of the routing table's entries.
+
+ **Compare function** returns a positive number, if the second prefix or mask is greater than the first one, in order to swap them. Otherwise it returns an negative number and the order isn't changed.
+
+### 2. The routing process (IPv4)
+
+Theese are the steps for implementing the routing process:
+
+- Verify if the received packet contains an IPv4 header
+- If it contains an ipv4 header:
+    - I make sure that the checksum is correct (by making again the checksum of the packet and comparing it to the received checksum);
+    - I verify and decrement the TTL and after that I calculate again the checksum (because the TTL was modified);
+    - I check if the packet contains an icmp header, if it is so, I modify the packet and I send an echo reply message;
+- Find the best route, using LPM;
+- Modify the ethernet header: the source MAC address will be the MAC address of the corresponding interface for the next-hop and I search for the destinantion MAC address in the arp table. If the arp table doesn't have the needed MAC addres I send an arp request packet.
+- After the previous steps I send the packet
+
+### 3. Arp 
+
+I implemented the arp protocol using 3 functions: 
+
+- **send_arp_request** - if the destination ip address of the next-hop is not found in the arp table, I call this function that creates an arp request packet and sends it to the broadcast address. For keeping track of the packets that are waiting for the MAC address, I used a queue and I made a structure that contains: the packet and its length, an entry in the routing table to the next-hop where the packet will be sent (**packet queue**).
+- **receive_arp_request** - this function is called when the router receives an arp request packet. It verifies if the packet contains an arp header and if the destination IP address is the router's IP address. If it is so, it sends an arp reply packet.
+
+- **receive_arp_reply** - is called when the router receives an arp reply packet with a possible destination MAC address. It updates the arp table with the new MAC address. Also sends the packets that were waiting for the MAC address, in the queue.
+
+### 4. ICMP
+The icmp protocol was implemented using **send_echo_message**. Based on the type of the icmp header (0 - for **echo reply**, 11 - for **time exceeded**, 3 - for **destination unreachable**) I modified the packet and I sent it back to the source. 
+- First of all, if the packet contains an icmp header (the protocol of the ip header is "IPPROTO_ICMP") and the type of the icmp header is 8 (**echo request**), I modify the received packet (swap de MAC addresses and the IP addresses, reset TTL to 64 and calculate again the checksum) and I send it back to the source.
+- For the other 2 cases, I do the same steps as above, but I create a new packet to send it back to the source. The new packet contains the ethernet header, the ip header of the received packet (with the ip addresses, length, protocol and checksum modified), a new icmp header and the ip header of the received packet (unmodified).
